@@ -1,0 +1,27 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Database (local data - do not commit)
+hospital.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
