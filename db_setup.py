@@ -12,6 +12,14 @@ import sqlite3
 import random
 import math
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+_IST = ZoneInfo("Asia/Kolkata")
+
+
+def _now_ist() -> datetime:
+    """Return current datetime in Asia/Kolkata timezone."""
+    return datetime.now(_IST)
 
 DB_PATH = "hospital.db"
 
@@ -108,7 +116,7 @@ def seed(conn: sqlite3.Connection):
     branch_ids = {row[1]: row[0] for row in cur.execute("SELECT id, name FROM branches")}
 
     # ── Departments + current occupancy ───────────────────────────────────────
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = _now_ist().strftime("%Y-%m-%d %H:%M:%S")
     for branch, depts in DEPARTMENTS.items():
         bid = branch_ids[branch]
         for dept in depts:
@@ -160,7 +168,7 @@ def seed(conn: sqlite3.Connection):
                     )
 
     # ── 24-hour occupancy trend ────────────────────────────────────────────────
-    now = datetime.now().replace(minute=0, second=0, microsecond=0)
+    now = _now_ist().replace(minute=0, second=0, microsecond=0)
     for branch in BRANCHES:
         bid = branch_ids[branch]
         base = rng.uniform(55, 85)

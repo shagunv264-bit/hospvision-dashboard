@@ -7,6 +7,7 @@ across multiple hospital departments / branches.
 import time
 import math
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 import pandas as pd
@@ -15,6 +16,13 @@ import plotly.express as px
 
 import db_utils
 from db_setup import create_schema, seed as seed_db
+
+_IST = ZoneInfo("Asia/Kolkata")
+
+
+def _now_ist() -> datetime:
+    """Return current datetime in Asia/Kolkata timezone."""
+    return datetime.now(_IST)
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -124,7 +132,7 @@ def _build_alerts(beds: pd.DataFrame, equipment: pd.DataFrame,
 
 # ── Session state ──────────────────────────────────────────────────────────────
 if "last_refresh" not in st.session_state:
-    st.session_state.last_refresh = datetime.now()
+    st.session_state.last_refresh = _now_ist()
 if "auto_refresh" not in st.session_state:
     st.session_state.auto_refresh = False
 if "refresh_interval" not in st.session_state:
@@ -175,11 +183,11 @@ with st.sidebar:
     st.session_state.refresh_interval = interval
 
     if st.button("🔄 Refresh Now", width="stretch"):
-        st.session_state.last_refresh = datetime.now()
+        st.session_state.last_refresh = _now_ist()
         st.cache_data.clear()
         st.rerun()
 
-    elapsed = (datetime.now() - st.session_state.last_refresh).seconds
+    elapsed = (_now_ist() - st.session_state.last_refresh).seconds
     st.caption(f"Last refreshed: {st.session_state.last_refresh.strftime('%H:%M:%S')} ({elapsed}s ago)")
 
     st.markdown("---")
@@ -189,9 +197,9 @@ with st.sidebar:
 
 # ── Auto-refresh trigger ───────────────────────────────────────────────────────
 if st.session_state.auto_refresh:
-    elapsed = (datetime.now() - st.session_state.last_refresh).total_seconds()
+    elapsed = (_now_ist() - st.session_state.last_refresh).total_seconds()
     if elapsed >= st.session_state.refresh_interval:
-        st.session_state.last_refresh = datetime.now()
+        st.session_state.last_refresh = _now_ist()
         st.cache_data.clear()
         st.rerun()
     remaining = max(0, int(st.session_state.refresh_interval - elapsed))
@@ -230,10 +238,11 @@ with col_title:
     st.markdown("## 🏥 HospVision Dashboard")
     st.caption(f"Monitoring {len(selected_branches)} branch(es) · {len(bed_df)} department views")
 with col_time:
+    _ts = _now_ist()
     st.markdown(
         f"<div style='text-align:right;padding-top:14px;color:#7c86c4;font-size:0.85rem'>"
-        f"<b style='font-size:1.1rem;color:#e8eaf0'>{datetime.now().strftime('%H:%M:%S')}</b><br>"
-        f"{datetime.now().strftime('%A, %d %b %Y')}</div>",
+        f"<b style='font-size:1.1rem;color:#e8eaf0'>{_ts.strftime('%H:%M:%S')}</b><br>"
+        f"{_ts.strftime('%A, %d %b %Y')} IST</div>",
         unsafe_allow_html=True,
     )
 

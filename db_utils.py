@@ -7,7 +7,15 @@ Every function returns a pandas DataFrame or a plain Python value.
 
 import sqlite3
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+_IST = ZoneInfo("Asia/Kolkata")
+
+
+def _now_ist() -> datetime:
+    """Return current datetime in Asia/Kolkata timezone."""
+    return datetime.now(_IST)
 
 DB_PATH = "hospital.db"
 
@@ -62,7 +70,7 @@ def update_bed_occupancy(branch: str, department: str,
         WHERE b.name = ? AND d.name = ?
         ORDER BY bo.id DESC LIMIT 1
     """
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = _now_ist().strftime("%Y-%m-%d %H:%M:%S")
     with _conn() as conn:
         row = conn.execute(sql_dept, (branch, department)).fetchone()
         if row is None:
@@ -109,7 +117,7 @@ def get_equipment_status() -> pd.DataFrame:
 def update_equipment(branch: str, equipment: str,
                      operational: int, maintenance: int, out_of_service: int) -> None:
     """Overwrite equipment counts for a given branch + equipment type."""
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = _now_ist().strftime("%Y-%m-%d %H:%M:%S")
     with _conn() as conn:
         bid = conn.execute("SELECT id FROM branches WHERE name=?", (branch,)).fetchone()
         if bid is None:
@@ -137,6 +145,9 @@ def get_occupancy_trend(hours: int = 24) -> pd.DataFrame:
     Returns hourly occupancy trend for all branches over the last `hours` hours.
     Columns: timestamp, branch, occupancy_pct
     """
+    # Timestamps stored in IST; compute the IST cutoff in Python
+    # so the comparison stays in the same timezone as the stored strings.
+    cutoff = (_now_ist() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
     sql = """
         SELECT
             ot.recorded_at  AS timestamp,
@@ -144,11 +155,11 @@ def get_occupancy_trend(hours: int = 24) -> pd.DataFrame:
             ot.occupancy_pct
         FROM occupancy_trend ot
         JOIN branches b ON b.id = ot.branch_id
-        WHERE ot.recorded_at >= datetime('now', ? || ' hours')
+        WHERE ot.recorded_at >= ?
         ORDER BY ot.recorded_at, b.name
     """
     with _conn() as conn:
-        df = pd.read_sql_query(sql, conn, params=(f"-{hours}",))
+        df = pd.read_sql_query(sql, conn, params=(cutoff,))
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     return df
 
@@ -158,7 +169,7 @@ def append_trend_snapshot(occupancy_by_branch: dict) -> None:
     Insert a new trend row for each branch.
     occupancy_by_branch = {"Main Campus": 78.5, "North Wing": 82.1, ...}
     """
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = _now_ist().strftime("%Y-%m-%d %H:%M:%S")
     with _conn() as conn:
         for branch, pct in occupancy_by_branch.items():
             bid = conn.execute("SELECT id FROM branches WHERE name=?", (branch,)).fetchone()
@@ -187,7 +198,7 @@ def get_active_alerts() -> pd.DataFrame:
 
 def insert_alert(level: str, message: str,
                  branch: str = None, department: str = None) -> None:
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = _now_ist().strftime("%Y-%m-%d %H:%M:%S")
     with _conn() as conn:
         conn.execute(
             "INSERT INTO alerts(level, message, branch, department, created_at) VALUES(?,?,?,?,?)",
